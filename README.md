@@ -174,14 +174,11 @@ Volume
 
 ```text
 /
-├── autounattend.xml        # (Optional) Zero-touch answer file
-├── docs/                   # Screenshots and troubleshooting guides
-├── scripts/
-│   ├── debloat.ps1         # Telemetry removal script
-│   ├── install_apps.ps1    # Chocolatey/Winget installer logic
-│   └── tweaks.reg          # Registry performance optimizations
+├── README.md
+├── setup.ps1                # Main unified setup script (Golden Image / Flexible Gamer)
+├── docs/                    # Screenshots, notes, troubleshooting guides
 └── tools/
-    └── ei.cfg              # Edition ID bypass file
+    └── ei.cfg               # Edition ID bypass file for ISO assembly
 ```
 
 ## Credits
