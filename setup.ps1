@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    GOLDEN IMAGE – FLEXIBLE GAMER EDITION
+    Configure a Windows LTSC installation during an Audit Mode image build.
 .DESCRIPTION
     - Keeps Microsoft Store & Xbox
     - Removes consumer bloat
@@ -11,6 +11,8 @@
 .AUTHOR
     gorevyoneticisi
 #>
+
+#Requires -RunAsAdministrator
 
 Write-Host "=== STARTING GOLDEN IMAGE SETUP ===" -ForegroundColor Cyan
 

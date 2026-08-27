@@ -1,192 +1,128 @@
-# Windows 10 IoT LTSC – Rapid Deployment Kit
+# Windows 10 IoT Enterprise LTSC Image Toolkit
 
-## ⚠️ LEGAL DISCLAIMER
+A PowerShell configuration script and a documented Audit Mode workflow for
+building a repeatable Windows 10 IoT Enterprise LTSC 2021 image from legitimate
+Microsoft installation media.
 
-This repository **DOES NOT** contain Microsoft Windows binaries, ISO files, or illegal activation scripts. It contains only the configuration files, scripts, and documentation required to build your own custom image using legitimate Microsoft media. You must provide your own legally obtained Windows ISO.
+> [!IMPORTANT]
+> This repository does not contain Windows or Office binaries, ISO images,
+> product keys, or activation tools. You must supply correctly licensed source
+> media and software.
 
----
+> [!CAUTION]
+> `setup.ps1` changes machine and user policy, removes selected provisioned
+> applications, and adjusts Windows Update targeting. Test it in a disposable
+> virtual machine, take a snapshot first, and review the script before running
+> it. There is currently no automated rollback.
 
-## Table of Contents
+## What the Script Does
 
-- Project Overview  
-- Workflow Architecture  
-- Features & Software Stack  
-- Prerequisites  
-- Build Guide (Step-by-Step)  
-- Repository Structure  
-- Credits  
+| Area | Changes |
+| --- | --- |
+| Consumer features | Disables suggested apps, tailored experiences, and silent consumer installs through policy and registry settings |
+| Copilot and AI policy | Applies policy keys that disable Copilot and Windows AI data analysis where those policies are supported |
+| App cleanup | Removes a defined list of consumer Appx packages while retaining Microsoft Store and Xbox components |
+| Gaming preferences | Enables automatic Game Mode and disables mouse acceleration |
+| Update targeting | Keeps the installed Windows product and display version as the target release until explicitly unlocked |
+| Optional toolbox | Creates local scripts for Steam/Epic installation, GPU-driver links, hibernation, visual effects, and update-policy removal |
 
----
+The script configures an installed system. It does **not** automatically capture
+a WIM, assemble an ISO, install Office, or preinstall every application in the
+finished image; those are separate administration steps.
 
-## Project Overview
-
-The goal of this project is to eliminate **"setup fatigue"** for IT professionals and system builders. This toolkit creates a **"Golden Image"** of **Windows 10 IoT Enterprise LTSC 2021** designed for maximum performance, low latency, and zero post-install setup.
-
-Instead of spending hours installing drivers and software on every new machine, this ISO provides a turn-key experience the moment it boots.
-
-- **Base OS:** Windows 10 IoT Enterprise LTSC 2021  
-- **Target Audience:** System Builders, IT Admins, Power Users  
-- **Optimization Strategy:** Native debloat (no 3rd party breakers), Group Policy hardening, registry tweaks  
-
----
-
-## Workflow Architecture
-
-This diagram illustrates the **Audit Mode pipeline** used to create the image.
+## Workflow
 
 ```mermaid
-graph TD
-    %% Nodes
-    ISO[Official MS ISO]
-    VM[Virtual Machine]
-    Audit[Audit Mode Admin]
-    Tweaks[Scripts & Installs]
-    Sysprep[Sysprep Seal]
-    WinPE[WinPE Capture Env]
-    WIM[install.wim]
-    Final[Final Custom ISO]
-
-    %% Flow
-    ISO -->|Install| VM
-    VM -->|CTRL+SHIFT+F3| Audit
-    Audit -->|Run Toolkit| Tweaks
-    Tweaks -->|Generalize| Sysprep
-    Sysprep -->|Reboot| WinPE
-    WinPE -->|DISM Capture| WIM
-    WIM -->|Inject Metadata| Final
-
+flowchart LR
+    ISO[Licensed Windows media] --> VM[Disposable VM]
+    VM --> AUDIT[Audit Mode]
+    AUDIT --> CONFIG[Review and run setup.ps1]
+    CONFIG --> VERIFY[Update and verify]
+    VERIFY --> SYSPREP[Sysprep /generalize]
+    SYSPREP --> WINPE[Boot WinPE]
+    WINPE --> WIM[Capture install.wim]
+    WIM --> FINAL[Assemble deployment media]
 ```
 
-## Features & Software Stack
+## Requirements
 
-The image is engineered to be lightweight yet fully featured. All bloatware is removed while preserving system stability.
+- Licensed Windows 10 IoT Enterprise LTSC 2021 installation media
+- A virtual machine with a restorable snapshot
+- Administrator access inside the VM
+- PowerShell 5.1 or later
+- Windows ADK/WinPE or equivalent deployment tooling for image capture
+- DISM and an ISO-authoring tool for the manual capture/assembly stages
 
-Pre-Installed Software
+## Build Procedure
 
-## ✨ Features & Software Stack
+### 1. Create a clean VM
 
-This image is deliberately engineered to strike a balance between minimalism and practicality. Non‑essential components and consumer bloat are removed using native methods, while core Windows functionality, update compatibility, and long‑term stability are fully preserved.
+Install Windows from official media. Before changing the image, take a VM
+snapshot and disconnect networking if your build process requires an offline
+first-boot path.
 
-### 📦 Pre-Installed Software
+At the region-selection screen, press `Ctrl+Shift+F3` to restart into Audit
+Mode.
 
-| Application        | Category      | Notes                               |
-|-------------------|--------------|-------------------------------------|
-| Google Chrome      | Browser       | Latest Enterprise Build             |
-| Microsoft Office   | Productivity  | Pre-loaded (License required)       |
-| VLC Media Player   | Media         | Default Video/Audio Handler         |
-| Notepad++          | Development   | Replaces stock Notepad              |
-| 7-Zip              | Utility       | Associated with all archive types   |
-| Visual C++ AIO     | Runtimes      | 2005–2022 Redistributables          |
-| DirectX            | Gaming        | June 2010 Runtimes (Legacy Support) |
+### 2. Review and run the configuration script
 
----
+Copy this repository into the VM, inspect `setup.ps1`, and run it from an
+elevated PowerShell session:
 
-### ⚙️ System Optimizations
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\setup.ps1
+```
 
-- **Power:** *Ultimate Performance* plan enabled by default  
-- **Privacy:** Telemetry, Cortana, and AI Assistants (Copilot) disabled via registry  
-- **UI:** Classic context menu restored; lock screen ads disabled  
-- **Maintenance:** Desktop folder **Optional Tweaks** contains scripts for:
-  - Pause/Resume Updates  
-  - Nvidia/AMD Driver Downloaders  
-  - Hibernation Toggles  
+Reboot and verify application removal, policies, Windows Update behavior, and
+the generated `Optional Tweaks` directory before continuing.
 
----
+### 3. Generalize the installation
 
-## Prerequisites
-
-To replicate this build, you require the following environment:
-
-- **Virtualization:** VMware Workstation Pro 17.3 (Recommended) or VMware Player  
-- **Source Media:** Official Windows 10 IoT Enterprise LTSC 2021 ISO  
-- **Tools:**
-  - AnyBurn (ISO mastering)
-  - wimlib-imagex (patching edition flags)
-  - DISM (native Windows tool)
-
----
-
-## Build Guide (Step-by-Step)
-
-### Phase 1: Preparation & Audit Mode
-
-1. Create a VM using the official Windows ISO.  
-2. **Crucial:** Disconnect the network adapter before first boot.  
-3. At the Region Selection screen, press: "Ctrl + Shift + F3"
-4. The system will reboot into the hidden Administrator account (**Audit Mode**).
-
----
-
-### Phase 2: Customization
-
-1. **Network:** Reconnect the network adapter (Bridged/NAT).  
-2. **Payload:** Run the included PowerShell scripts from the `/scripts` folder.  
-3. **Updates:** Manually run Windows Update to apply all security patches.  
-
-#### Cleanup
-
-- Delete all installer `.exe` files.  
-- Uninstall VMware Tools (**must be removed** to prevent driver conflicts on real hardware).  
-
----
-
-### Phase 3: Sealing (Sysprep)
-
-Generalize the image to remove hardware-specific IDs:
+After completing updates and removing temporary installers or VM-specific
+tools, run Sysprep:
 
 ```cmd
 %WINDIR%\System32\Sysprep\sysprep.exe /generalize /oobe /shutdown
 ```
 
+### 4. Capture the image
 
-### Phase 4: Capture & Metadata Patch
-
-1. Boot VM into WinPE (using original Windows ISO).  
-2. Capture the `C:` drive:
+Boot into WinPE and capture the generalized Windows partition. Adjust drive
+letters for your environment:
 
 ```cmd
 Dism /Capture-Image /ImageFile:S:\install.wim /CaptureDir:C:\ /Name:"Windows 10 IoT LTSC"
 ```
 
-**Critical Fix:** Patch the WIM metadata to fix "Image not displayed" errors in Setup:
+If required by your source media, set the edition metadata:
 
 ```cmd
 wimlib-imagex.exe info install.wim 1 --image-property FLAGS=EnterpriseS
 ```
 
-### Phase 5: Assembly
+### 5. Assemble deployment media
 
-Using AnyBurn, replace the original `install.wim` in the `/sources` folder with your new custom file. Add the bypass config:
+Replace `sources\install.wim` in a working copy of the licensed installation
+media and include [`tools/ei.cfg`](tools/ei.cfg). Build a new ISO with your
+preferred deployment tool, then test the complete OOBE flow in a second VM.
 
-**File:** `/sources/ei.cfg`
-
-```ini
-[EditionID]
-EnterpriseS
-[Channel]
-Volume
-[VL]
-1
-```
-
-
-## Repository Structure
+## Repository Layout
 
 ```text
-/
+.
 ├── README.md
-├── setup.ps1                # Main unified setup script (Golden Image / Flexible Gamer)
-├── docs/                    # Screenshots, notes, troubleshooting guides
+├── setup.ps1       # System configuration and optional-toolbox generator
 └── tools/
-    └── ei.cfg               # Edition ID bypass file for ISO assembly
+    └── ei.cfg      # EnterpriseS edition/channel metadata
 ```
 
-## Credits
+## Scope and Support
 
-- Microsoft for the stable LTSC platform  
-- VoidTools for **Everything** search (recommended addition)  
-- Wimlib for open-source WIM management tools  
+This is a reproducible lab workflow, not a Microsoft-supported deployment
+product. Windows policies and component names can change over time; validate
+the behavior against the exact LTSC build and update level you intend to ship.
 
-**Built with ❤️ by** `gorevyoneticisi`  
-**Last Build:** December 2025
+## License
 
+MIT. See [LICENSE](LICENSE).
